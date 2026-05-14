@@ -15,6 +15,7 @@ export {
   premiumTokenValues,
   defaultRate,
   permissionBitSupersets,
+  MAX_AUDIT_EXPORT_ROWS,
   MAX_AUDIT_LOG_LIMIT,
 } from './methods';
 export type * from './types';
