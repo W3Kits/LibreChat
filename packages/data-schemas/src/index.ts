@@ -19,6 +19,7 @@ export {
 } from './methods';
 export type * from './types';
 export type * from './methods';
+export { AUDIT_ACTIONS } from './types/admin';
 export { default as logger } from './config/winston';
 export { default as meiliLogger } from './config/meiliLogger';
 export {
