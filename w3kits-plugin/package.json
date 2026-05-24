@@ -1,9 +1,9 @@
 {
   "name": "@w3kits/plugin-librechat",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": false,
   "type": "module",
-  "description": "W3Kits LibreChat plugin extracted as a single-user chat surface.",
+  "description": "Open-source AI chat interface for single-user conversations and workspace context.",
   "license": "UNLICENSED",
   "author": "W3Kits",
   "files": [
