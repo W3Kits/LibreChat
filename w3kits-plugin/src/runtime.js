@@ -68,8 +68,11 @@ function bridgeRequest(message, timeoutMs = 20000) {
         return;
       }
 
-      const message = data?.error?.message || data?.error?.code || "W3Kits runtime bridge failed.";
-      reject(new Error(message));
+      const code = data?.error?.code || "bridge_failed";
+      const message = data?.error?.message || code || "W3Kits runtime bridge failed.";
+      const error = new Error(message);
+      error.code = code;
+      reject(error);
     };
 
     window.addEventListener("message", onMessage);
@@ -77,7 +80,34 @@ function bridgeRequest(message, timeoutMs = 20000) {
   });
 }
 
+function shouldPromptLoginForResponse(response, payload) {
+  if (response.status === 401) return true;
+  const code = payload?.error?.code || payload?.error || payload?.code;
+  return code === "login_required" || code === "plugin_runtime_session_required" || code === "invalid_plugin_runtime_session";
+}
+
+async function maybePromptLogin(response) {
+  if (response.ok || response.__librechatLoginPromptChecked) return response;
+  response.__librechatLoginPromptChecked = true;
+  let payload = null;
+  try {
+    payload = await response.clone().json();
+  } catch {
+    payload = null;
+  }
+  if (shouldPromptLoginForResponse(response, payload)) requestLogin("ai_request");
+  return response;
+}
+
+function installAuthFetchInterceptor() {
+  if (window.__librechatAuthFetchInterceptorInstalled) return;
+  window.__librechatAuthFetchInterceptorInstalled = true;
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = async (input, init) => maybePromptLogin(await nativeFetch(input, init));
+}
+
 export function bootstrapLocale() {
+  installAuthFetchInterceptor();
   const queryLocale = normalizeLocale(queryParam("w3kitsLocale"));
   const storedLocale = normalizeLocale(window.localStorage.getItem(LOCALE_STORAGE_KEY));
   const browserLocale = normalizeLocale(window.navigator.language) || normalizeLocale(window.navigator.languages?.[0]);
@@ -160,7 +190,7 @@ export async function readPluginJson(path, fallback) {
     return JSON.parse(result.body);
   } catch (error) {
     const message = error instanceof Error ? error.message.toLowerCase() : "";
-    if (message.includes("not_found")) return fallback;
+    if (error?.code === "not_found" || message.includes("not_found")) return fallback;
     throw error;
   }
 }
@@ -208,12 +238,6 @@ function encodeBase64(value) {
   return btoa(binary);
 }
 
-function isLoginRequired(payload, status) {
-  if (status === 401) return true;
-  const code = payload?.error?.code || payload?.error || payload?.code;
-  return code === "login_required" || code === "plugin_runtime_session_required" || code === "invalid_plugin_runtime_session";
-}
-
 export async function fetchAvailableModels(fallbackModels) {
   try {
     const session = await getRuntimeSession();
@@ -224,7 +248,6 @@ export async function fetchAvailableModels(fallbackModels) {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      if (isLoginRequired(payload, response.status)) requestLogin("ai_models");
       return fallbackModels;
     }
     const ids = Array.isArray(payload?.data) ? payload.data.map((item) => item?.id).filter((id) => typeof id === "string") : [];
@@ -250,7 +273,6 @@ export async function createChatCompletion({ model, messages, temperature = 0.6,
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    if (isLoginRequired(payload, response.status)) requestLogin("ai_request");
     throw new Error(payload?.error?.message || payload?.message || `Chat completion failed (${response.status}).`);
   }
   return extractAssistantText(payload);

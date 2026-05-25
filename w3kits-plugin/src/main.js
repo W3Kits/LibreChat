@@ -14,7 +14,6 @@ import {
   desktopWriteText,
   fetchAvailableModels,
   readPluginJson,
-  requestLogin,
   setWindowTitle,
   syncPluginStorage,
   visibleDesktopPath,
@@ -125,7 +124,6 @@ function render() {
         </div>
         <div class="sidebar-actions">
           <button id="new-chat">${escapeHtml(copy.newChat)}</button>
-          <button id="open-login">${escapeHtml(copy.openLogin)}</button>
         </div>
         <div class="sidebar-meta">
           <span>${escapeHtml(copy.chats)}</span>
@@ -228,9 +226,6 @@ function render() {
     render();
   });
 
-  app.querySelector("#open-login")?.addEventListener("click", () => {
-    requestLogin("plugin_runtime");
-  });
 
   app.querySelector("#model-select")?.addEventListener("change", async (event) => {
     state.modelId = event.target.value;
