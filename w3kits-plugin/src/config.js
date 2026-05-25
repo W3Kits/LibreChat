@@ -1,5 +1,5 @@
 export const W3KITS_PLUGIN_ID = "librechat";
-export const DESKTOP_ROOT = "/.w3kits/desktop/files/LibreChat";
+export const DESKTOP_ROOT = "/.w3kits/desktop/files/.config/librechat";
 export const EXPORT_DIR = `${DESKTOP_ROOT}/exports`;
 export const STATE_PATH = "state/librechat.json";
 
@@ -28,7 +28,7 @@ export const COPY = {
     sending: "Sending...",
     chats: "Chats",
     model: "Model",
-    exportFolder: "Exports write into /home/agent/LibreChat/exports.",
+    exportFolder: "Exports write into /home/agent/.config/librechat/exports.",
     loginRequired: "Login required.",
     missingPrompt: "Message is required.",
     errorPrefix: "Request failed:"
@@ -51,7 +51,7 @@ export const COPY = {
     sending: "发送中...",
     chats: "会话",
     model: "模型",
-    exportFolder: "导出会写入 /home/agent/LibreChat/exports。",
+    exportFolder: "导出会写入 /home/agent/.config/librechat/exports。",
     loginRequired: "需要登录。",
     missingPrompt: "请输入消息。",
     errorPrefix: "请求失败："
