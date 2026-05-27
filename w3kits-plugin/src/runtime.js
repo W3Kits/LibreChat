@@ -4,9 +4,6 @@ const W3KITS_BRIDGE_VERSION = 1;
 const W3KITS_RESPONSE = "W3KITS_RESPONSE";
 const W3KITS_AUTH_REQUIRED = "W3KITS_AUTH_REQUIRED";
 const W3KITS_RUNTIME_SESSION_REQUEST = "W3KITS_RUNTIME_SESSION_REQUEST";
-const W3KITS_STORAGE_READ = "W3KITS_STORAGE_READ";
-const W3KITS_STORAGE_WRITE = "W3KITS_STORAGE_WRITE";
-const W3KITS_STORAGE_SYNC = "W3KITS_STORAGE_SYNC";
 const W3KITS_DESKTOP_FS_WRITE = "W3KITS_DESKTOP_FS_WRITE";
 const W3KITS_DESKTOP_FS_MKDIR = "W3KITS_DESKTOP_FS_MKDIR";
 const W3KITS_WINDOW_TITLE = "W3KITS_WINDOW_TITLE";
@@ -163,6 +160,78 @@ export async function getRuntimeSession() {
   return session;
 }
 
+function objectFacadeStorage(session) {
+  const storage = session?.storage;
+  if (!storage || storage.type !== "w3kits-vfs-object-facade" || !storage.endpoint || !storage.bucket) return null;
+  return storage;
+}
+
+function objectFacadeUrl(storage, path, options = {}) {
+  const key = String(path || "").replace(/^\/+/, "").split("/").map(encodeURIComponent).join("/");
+  const base = new URL(String(storage.endpoint).replace(/\/+$/, "") + "/" + encodeURIComponent(storage.bucket) + (key ? "/" + key : ""), getParentOrigin());
+  if (options.formatJson) base.searchParams.set("format", "json");
+  if (options.sync) {
+    base.searchParams.set("sync", "1");
+    base.searchParams.set("format", "json");
+  }
+  return base.toString();
+}
+
+function objectFacadeHeaders(session, contentType) {
+  const headers = {
+    [session.runtimeSessionHeader || "x-w3kits-runtime-session"]: session.token,
+    "x-w3kits-plugin-id": session.pluginId || W3KITS_PLUGIN_ID,
+    "x-w3kits-plugin-version": session.pluginVersion,
+  };
+  if (contentType) headers["Content-Type"] = contentType;
+  for (const [key, value] of Object.entries(session.identityHeaders || {})) {
+    if (typeof value === "string" && value) headers[key] = value;
+  }
+  if (session.packageName) headers["x-w3kits-plugin-package"] = session.packageName;
+  if (session.packageIntegrity) headers["x-w3kits-plugin-integrity"] = session.packageIntegrity;
+  return headers;
+}
+
+async function facadeStorageRead(session, path) {
+  const storage = objectFacadeStorage(session);
+  if (!storage) return null;
+  const response = await fetch(objectFacadeUrl(storage, path), {
+    headers: objectFacadeHeaders(session),
+  });
+  if (response.status === 404) return { found: false };
+  if (!response.ok) throw new Error(await response.text().catch(() => "object_facade_read_failed"));
+  return {
+    found: true,
+    body: await response.text(),
+    contentType: response.headers.get("content-type") || undefined,
+    etag: response.headers.get("etag") || undefined,
+    revision: response.headers.get("x-w3kits-vfs-revision") || undefined,
+  };
+}
+
+async function facadeStorageWrite(session, path, body, contentType) {
+  const storage = objectFacadeStorage(session);
+  if (!storage) return null;
+  const response = await fetch(objectFacadeUrl(storage, path, { formatJson: true }), {
+    method: "PUT",
+    headers: objectFacadeHeaders(session, contentType),
+    body,
+  });
+  if (!response.ok) throw new Error(await response.text().catch(() => "object_facade_write_failed"));
+  return response.json().catch(() => ({ ok: true }));
+}
+
+async function facadeStorageSync(session) {
+  const storage = objectFacadeStorage(session);
+  if (!storage) return null;
+  const response = await fetch(objectFacadeUrl(storage, "", { sync: true }), {
+    method: "POST",
+    headers: objectFacadeHeaders(session),
+  });
+  if (!response.ok) throw new Error(await response.text().catch(() => "object_facade_sync_failed"));
+  return response.json().catch(() => ({ ok: true }));
+}
+
 function runtimeHeaders(session, includeJsonContentType = true) {
   const headers = {};
   if (includeJsonContentType) headers["Content-Type"] = "application/json";
@@ -181,35 +250,30 @@ function runtimeHeaders(session, includeJsonContentType = true) {
 
 export async function readPluginJson(path, fallback) {
   try {
-    const result = await bridgeRequest({
-      type: W3KITS_STORAGE_READ,
-      pluginId: W3KITS_PLUGIN_ID,
-      path
-    });
-    if (!result?.body) return fallback;
-    return JSON.parse(result.body);
+    const session = await getRuntimeSession();
+    const facade = await facadeStorageRead(session, path);
+    if (facade) {
+      if (!facade.found || !facade.body) return fallback;
+      return JSON.parse(facade.body);
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message.toLowerCase() : "";
-    if (error?.code === "not_found" || message.includes("not_found")) return fallback;
+    if (error?.code === "not_found" || message.includes("not_found") || message.includes("not found")) return fallback;
     throw error;
   }
 }
 
 export async function writePluginJson(path, value) {
-  return bridgeRequest({
-    type: W3KITS_STORAGE_WRITE,
-    pluginId: W3KITS_PLUGIN_ID,
-    path,
-    body: JSON.stringify(value, null, 2),
-    contentType: "application/json"
-  });
+  const body = JSON.stringify(value, null, 2);
+  const session = await getRuntimeSession();
+  const facade = await facadeStorageWrite(session, path, body, "application/json");
+  return facade;
 }
 
 export async function syncPluginStorage() {
-  return bridgeRequest({
-    type: W3KITS_STORAGE_SYNC,
-    pluginId: W3KITS_PLUGIN_ID
-  });
+  const session = await getRuntimeSession();
+  const facade = await facadeStorageSync(session);
+  return facade;
 }
 
 export async function desktopMkdir(path) {
@@ -296,5 +360,7 @@ function extractAssistantText(payload) {
 }
 
 export function visibleDesktopPath(path) {
-  return String(path || "").replace(/^\/\.w3kits\/desktop\/files/, "/home/agent");
+  const value = String(path || "");
+  if (value.startsWith("/home/agent")) return value;
+  return value.replace(/^\/\.w3kits\/desktop\/files/, "/home/agent");
 }

@@ -1,5 +1,5 @@
 export const W3KITS_PLUGIN_ID = "librechat";
-export const DESKTOP_ROOT = "/.w3kits/desktop/files/.config/librechat";
+export const DESKTOP_ROOT = "/home/agent/.config/librechat";
 export const EXPORT_DIR = `${DESKTOP_ROOT}/exports`;
 export const STATE_PATH = "state/librechat.json";
 

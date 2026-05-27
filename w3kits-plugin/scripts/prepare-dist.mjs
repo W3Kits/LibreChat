@@ -4,7 +4,7 @@ import path from "node:path";
 const root = path.resolve(process.cwd());
 const dist = path.join(root, "dist");
 const src = path.join(root, "src");
-const iconSource = path.join(root, "assets", "w3kits-icon.svg");
+const iconSource = path.join(root, "..", "client", "public", "assets", "logo.svg");
 const w3kitsDir = path.join(dist, "__w3kits");
 
 function copyRecursive(from, to) {
@@ -25,7 +25,7 @@ fs.rmSync(dist, { recursive: true, force: true });
 copyRecursive(src, dist);
 
 if (!fs.existsSync(iconSource)) {
-  throw new Error("Missing W3Kits icon source: assets/w3kits-icon.svg");
+  throw new Error("Missing upstream LibreChat icon source: client/public/assets/logo.svg");
 }
 
 fs.mkdirSync(w3kitsDir, { recursive: true });
