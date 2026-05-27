@@ -5,10 +5,11 @@ plugin intake work.
 
 ## Current status
 
-LibreChat has a local W3Kits package layer at `w3kits-plugin/` for marketplace
-intake as a scoped V1 chat surface.
+LibreChat is kept as an upstream self-hosted product. W3Kits does not publish a
+custom `w3kits-plugin` browser UI for LibreChat, because that misrepresents the
+upstream application and diverges from the official runtime model.
 
-The current upstream shape is a full self-hosted product:
+The upstream shape is a full self-hosted product:
 
 - Node/Express backend under `api/`
 - MongoDB as a required database (`MONGO_URI`)
@@ -17,20 +18,17 @@ The current upstream shape is a full self-hosted product:
 - multi-user/auth/provider configuration centered on server-side state
 
 That is not a thin `browser-web` plugin and not a low-intrusion
-`webcontainer` plugin in the current W3Kits V1 model.
+`webcontainer` plugin in the current W3Kits browser runtime.
 
 ## W3Kits decision
 
-Keep the original upstream product blocked for direct V1 packaging.
+LibreChat remains visible in the marketplace as a local-only upstream listing
+with source, upstream version, and license metadata, but it is not installable
+until a real self-hosted LibreChat service is deployed and wired into W3Kits.
 
-Only revisit LibreChat through an explicit scope cut that:
+Only revisit runnable LibreChat integration through a self-hosted plan that:
 
-- preserves upstream branding and UI direction
-- removes the mandatory MongoDB/Auth/Express product backend
-- rebases chat/provider/config persistence onto W3Kits runtime contracts
-- uses W3Kits runtime AI access instead of LibreChat server-owned provider keys
-
-## Current W3Kits artifacts
-
-- `core/docs/librechat-v1-scope-cut.md`
-- `w3kits-plugin/`
+- uses upstream LibreChat UI and server runtime
+- keeps MongoDB/session/provider state on the self-hosted service
+- configures W3Kits OpenAI-compatible access through server-side configuration
+- avoids replacing upstream UI with a custom W3Kits chat surface
